@@ -1,38 +1,38 @@
 {:itonami.blueprint/id "cloud-itonami-isic-2670"
- :itonami.blueprint/name "Manufacture of optical instruments and photographic equipment"
+ :itonami.blueprint/name "Manufacture of Optical Instruments and Photographic Equipment"
  :itonami.blueprint/isic-rev5 "2670"
- :itonami.blueprint/domain :optical-instrument/manufacturing
+ :itonami.blueprint/domain :manufacturing/optical-instruments
  :itonami.blueprint/license "AGPL-3.0-or-later"
- :itonami.blueprint/social-impact [:consumer-safety :worker-safety :materials-safety]
- :itonami.blueprint/governor :optical-instrument-plant-operations-governor
+ :itonami.blueprint/social-impact [:product-safety :supply-resilience :industrial-jobs]
+ :itonami.blueprint/governor :module-seating-governor
  :itonami.blueprint/robotics true
- :itonami.blueprint/required-technologies [:robotics :identity :forms :dmn :bpmn :audit-ledger :eda :cae]
- :itonami.blueprint/optional-technologies []
+ :itonami.blueprint/required-technologies [:robotics :cae :dmn :bpmn :audit-ledger]
+ :itonami.blueprint/optional-technologies [:cfd :telemetry :optimization]
  :itonami.blueprint/status :public-oss
  :itonami.blueprint/maturity :implemented
  :itonami.blueprint/implemented-slice
- "OpticalInstrAdvisor ⊣ Optical Instrument Plant Operations Governor,
- langgraph-clj StateGraph, append-only audit ledger. A plant OPERATIONS
- COORDINATION actor for optical instrument and photographic equipment
- manufacturing (lens-grinding/optics-assembly/testing lines producing
- lenses, binoculars, microscopes, telescopes, cameras and projectors)
- -- not direct lens-grinding/assembly-line-equipment control authority
- and not laser-safety-classification-body regulatory authority. Four
- ops (`:log-production-batch` / `:schedule-maintenance` /
- `:flag-safety-concern` / `:coordinate-shipment`), all `:effect
- :propose` only. Thirteen concrete governor checks elaborate this
- blueprint's four HARD invariants: propose-only effect, closed op
- allowlist, closed proposal-effect allowlist (no direct lens-grinding/
- assembly-line-equipment control), permanent equipment-actuate block,
- permanent laser-safety-classification-authority block (this actor
- never self-issues an IEC 60825-1 laser safety class certification),
- independent equipment verification/registration before maintenance
- scheduling, independent batch verification/registration before
- shipment coordination, independent shipment-quantity recompute
- against the batch's own logged production quantity, double-schedule
- guard, instrument-class validation, resolution-test plausibility
- validation, and defect-rate plausibility validation. Safety-concern
- flagging (materials-safety/precision-defect/laser-alignment-hazard)
- ALWAYS escalates to a human plant supervisor; `:log-production-batch`
- is the only op eligible to auto-commit, and only at phase 3 when
- governor-clean."}
+ "Optics Advisor (contained-intelligence proposal node) ⊣ Module-Seating
+ Governor (independent censor). Entity is an optical-module-batch (a
+ manufactured lot of camera/optical modules of one spec, either a
+ smartphone camera-module batch or an automotive ADAS optical/camera
+ sensor-module batch). Six ops: :optical-module-batch/intake (directory
+ patch normalize, phase-3 auto-eligible when clean, the only auto op in
+ this domain) -> :optical-standard-rules/verify (per-product-class
+ evidence checklist against opticsworks.facts's SMARTPHONE-CAMERA/
+ AUTOMOTIVE-ADAS catalog, never auto) -> :end-of-line-quality/screen
+ (optical-clarity/dust-ingress/dead-pixel defect screen, evaluated
+ unconditionally, HARD hold if unresolved) -> :robotics/simulate-lens-
+ seating-test (a REAL physics-2d time-stepped lens-barrel press-fit
+ seating-test simulation deriving :sim-peak-seating-force-n from the
+ actual simulated collision impulse, never auto) -> dual actuation,
+ BOTH always escalate to a human and both HARD-hold on a fabricated
+ spec-basis, incomplete evidence, a missing or independently
+ out-of-tolerance (over- or under-pressed) seating-force simulation, an
+ out-of-band focus-back-distance-deviation ground-truth recheck, an
+ unresolved end-of-line defect, or a double actuation:
+ :actuation/ship-optical-module-batch (dispatches onward to
+ cloud-itonami-isic-2630 for smartphone camera modules or
+ cloud-itonami-isic-2910/cloud-itonami-isic-2920 for automotive
+ optical/ADAS sensor modules) and :actuation/issue-optical-certificate
+ (Optical Module Test Certificate: resolution/MTF test report + safety
+ compliance)."}

@@ -1,209 +1,143 @@
-# ADR-0001: OpticalInstrAdvisor ⊣ Optical Instrument Plant Operations Governor architecture
+# ADR-0001: Optics Advisor ⊣ Module-Seating Governor architecture
 
-## Status
-
-Accepted. `cloud-itonami-isic-2670` promoted from `:spec` to
-`:implemented` in the `kotoba-lang/industry` registry, following the
-verified fresh-scaffold protocol established by prior actors in this
-fleet.
+- Status: Accepted (2026-07-15)
+- Repository: `cloud-itonami-isic-2670` (ISIC Rev.5 `2670`)
 
 ## Context
 
-`cloud-itonami-isic-2670` publishes an OSS blueprint for optical-
-instrument-and-photographic-equipment **plant operations coordination**
-(production-batch instrument-class/resolution-test/quantity/defect-
-rate data logging, lens-grinding/optics-assembly/testing-equipment
-maintenance scheduling, safety-concern flagging, and outbound product
-shipment coordination). Like every actor in this fleet, the blueprint
-alone is not an implementation: this ADR records the governed-actor
-architecture that promotes it to real, tested code, following the same
-langgraph StateGraph + independent Governor + Phase 0->3 rollout
-pattern established across the cloud-itonami fleet.
+Optical-instrument/photographic-equipment manufacturing (lens-barrel
+press-fit seating-test verification, per-product-class optical-standard
+evidence verification, end-of-line optical-clarity/dust-ingress/
+dead-pixel inspection, Optical Module Test Certificate issuance) needs
+the same governed-actor pattern as the rest of the cloud-itonami fleet:
+an untrusted advisor proposes; an independent governor may HOLD;
+high-stakes actuation never auto-commits.
 
-The closest domain analog is `cloud-itonami-isic-3250` (Manufacture of
-medical and dental instruments and supplies): both are back-office
-coordination actors for a fixed processing PLANT with precision
-manufacturing equipment and a real worker-safety dimension, and both
-share the same four-op shape (`:log-production-batch`/
-`:schedule-maintenance`/`:flag-safety-concern`/`:coordinate-shipment`)
-and the same two-entity verified/registered gate structure (equipment
-for maintenance scheduling, batch for shipment coordination). This
-build mirrors `cloud-itonami-isic-3250`'s architecture closely (itself
-informed by `cloud-itonami-isic-2211` and `cloud-itonami-isic-2652`)
-but adapts the hazard profile and equipment/product vocabulary to the
-optical-instrument-and-photographic-equipment plant: this vertical's
-central physical hazard is lens-grinding/optics-assembly/testing-
-equipment operation and laser-alignment/materials-safety/precision-
-defect risk (worker-safety, not 3250's sterility-assurance/patient-
-safety risk); its permanent equipment-actuation block guards lens-
-grinding/optics-assembly/testing EQUIPMENT (`:actuate-equipment?`),
-the same field shape as every sibling actor's own equipment-actuation
-guard; its production-batch record declares an `:instrument-class`
-(closed set spanning the core ISIC 2670 product categories -- optical
-lenses, binoculars, microscopes, telescopes, cameras, projectors --
-excluding spectacle lenses and electron/proton microscopes, which fall
-outside this class by definition) and a
-`:resolution-test-line-pairs-per-mm` (a USAF-1951-style resolution-
-target reading, plausibility-checked against the visible-light
-diffraction limit) in addition to a `:defect-rate-percent`, rather than
-3250's `:device-class`/`:sterility-assurance-level`/
-`:nonconformance-rate-percent`; and its shipment quantity is tracked
-in finished-instrument UNITS (`:units`/`:quantity-units`/
-`:shipped-units`), the same counted-not-weighed shape 3250 uses for
-finished medical instruments.
+The industry-registry entry for `2670` had sat with no repo, no
+business model, no actor (a plain "plant operations coordination" stub
+with no physics simulation and no real optical-standard evidence
+catalog). A value-chain review found `cloud-itonami-isic-2630`
+(communication-equipment/smartphone assembly) and
+`cloud-itonami-isic-2910`/`cloud-itonami-isic-2920` (motor-vehicle/body
+assembly) both implemented, each consuming a finished camera/optical
+sensor module as an input, but the camera/optical-module manufacturing
+stage feeding BOTH chains had no real actor -- the same "missing shared
+upstream stage" gap `cloud-itonami-isic-2220` (injection-molded
+plastics) closed for both chains' housing/trim components.
 
-This vertical additionally has a DOMAIN-SPECIFIC permanent block
-mirroring 3250's FDA 510(k)/CE-mark block but for a different
-regulatory regime: manufacture of optical instruments commonly
-involves laser-based alignment/collimation tooling on the testing
-line, and any laser product sold as (or incorporating) a laser device
-is subject to IEC 60825-1 laser safety classification, issued by an
-accredited testing laboratory. This actor is never the laser-safety-
-classification authority -- any proposal (regardless of op) that
-declares `:issue-laser-safety-classification? true` is a HARD,
-PERMANENT, unconditional block
-(`opticalmfg.governor/laser-classification-authority-blocked-
-violations`), the same "no phase, no human override" posture as the
-equipment-actuation block.
-
-This vertical has NO pre-existing `kotoba-lang/opticalmfg`-style
-capability library to wrap (verified: no such repo exists, and no
-`optics`/`opticalinstr`-named repo exists in `kotoba-lang` either, via
-GitHub code/repo search). This build therefore uses self-contained
-domain logic -- pure functions in `opticalmfg.registry` (equipment/
-batch verification, shipment-quantity recompute, instrument-class
-validation, resolution-test plausibility validation, defect-rate
-plausibility validation) are re-verified independently by the
-governor, the same "ground truth, not self-report" discipline
-established across prior actors (most directly
-`cloud-itonami-isic-3250`'s `medinstrmfg.registry`).
-
-This blueprint's own `:itonami.blueprint/governor` keyword,
-`:optical-instrument-plant-operations-governor`, is grep-verified
-UNIQUE fleet-wide (`gh search code
-"optical-instrument-plant-operations-governor" --owner cloud-itonami`,
-zero hits before this repo was created).
+This vertical adopts ADR-2607151600/ADR-2607152000's real-engineering-
+simulation fleet pattern NATIVELY from day one -- mirroring how
+`cloud-itonami-isic-2220`/`cloud-itonami-isic-2720`/`cloud-itonami-isic-2310`
+were each built real-physics-first.
 
 ## Decision
 
-### Decision 1: Self-contained domain logic (no external optical-instrument-manufacturing capability library to wrap)
-
-Unlike actors that delegate to pre-existing domain libraries, this
-optical-instrument-and-photographic-equipment vertical has NO
-pre-existing capability library to wrap. The equipment/batch-
-verification / shipment-quantity / instrument-class / resolution-test
-/ defect-rate validation functions live as pure functions in
-`opticalmfg.registry` and are re-verified independently by
-`opticalmfg.governor` -- the same "ground truth, not self-report"
-discipline established across prior actors (most directly
-`cloud-itonami-isic-3250`'s `medinstrmfg.registry`).
-
-### Decision 2: Coordination, not control — scope boundary at the back-office
-
-This actor is **strictly back-office coordination** of optical-
-instrument-and-photographic-equipment plant operations. It does NOT:
-- Control lens-grinding, optics-assembly, or testing equipment directly
-- Make plant-safety or laser-safety-classification decisions (exclusive to the human plant supervisor / accredited testing laboratory)
-- Actuate lens-grinding/optics-assembly/testing equipment
-- Self-issue an IEC 60825-1 laser safety class certification
-
-All proposals are `:effect :propose` only. The advisor proposes; the
-governor validates; escalation paths funnel to human plant-supervisor
-approval. This is not a replacement for the supervisor's authority or
-the accredited testing laboratory's authority -- it is a
-proposal-screening and documentation layer.
-
-**CRITICAL SAFETY BOUNDARY**: optical-instrument and photographic-
-equipment manufacturing is a safety-critical domain (precision-defect
-risk, laser-alignment hazard, materials-safety hazard, direct
-worker-safety consequence). Safety-concern flagging NEVER
-auto-commits. All safety concerns escalate immediately to human
-review.
-
-### Decision 3: Safety-concern escalation — always human sign-off
-
-`:flag-safety-concern` (materials-safety concern, precision-defect
-concern, laser-alignment-hazard concern) ALWAYS escalates, never
-auto-commits. This is not a "low-stakes proposal" -- it is a
-circuit-breaker that must reach human authority.
-
-### Decision 4: Two independent verified/registered gates (equipment AND batch), not one
-
-Like `cloud-itonami-isic-3250`, this vertical has TWO entity kinds
-each gating a different op: `:schedule-maintenance` independently
-verifies the referenced **equipment** unit's own `:verified?`/
-`:registered?` fields; `:coordinate-shipment` independently verifies
-the referenced **batch**'s own `:verified?`/`:registered?` fields.
-Both are the same "plant/batch record must be independently
-verified/registered before any action" HARD invariant applied to the
-two distinct record kinds this domain actually has.
-`:coordinate-shipment` additionally independently recomputes whether
-a batch's own recorded shipped-to-date unit quantity plus the
-proposal's own claimed unit quantity would exceed the batch's own
-recorded production quantity -- never taken on the advisor's
-self-report.
-
-### Decision 5: HARD invariants (no override)
-
-Four HARD governor invariants (elaborated into thirteen concrete
-checks in `opticalmfg.governor`, mirroring `cloud-itonami-isic-3250`'s
-own elaboration of its HARD invariants into concrete checks) block
-proposals and cannot be overridden by human approval:
-1. Plant/batch record (equipment for maintenance, batch for shipment) must be independently verified/registered before any action is taken against it, and a shipment's quantity must independently recompute within the batch's own logged production quantity
-2. Proposals must be `:effect :propose` only (never direct equipment control)
-3. Direct lens-grinding/optics-assembly-line-equipment control, equipment actuation, or self-issued IEC 60825-1 laser safety classification is permanently blocked
-4. The op allowlist is closed — `:log-production-batch`/`:schedule-maintenance`/`:flag-safety-concern`/`:coordinate-shipment` only
+1. Namespaces live under `opticsworks.*` with the standard facts /
+   registry / store / governor / phase / advisor / operation / sim /
+   robotics / export shape.
+2. Entity is an **optical-module-batch** (a manufactured lot of camera/
+   optical modules of one spec -- either a smartphone camera-module
+   batch or an automotive ADAS optical/camera sensor-module batch), not
+   a finished device or a finished vehicle.
+3. Dual actuation on the same entity:
+   - `:actuation/ship-optical-module-batch` (robot optical-module-
+     batch-shipment dispatch draft, onward to a downstream consumer --
+     the real dual hand-off to BOTH `cloud-itonami-isic-2630`'s
+     smartphone camera-module integration and `cloud-itonami-isic-2910`/
+     `cloud-itonami-isic-2920`'s automotive backup-camera/ADAS
+     optical-sensor-module integration)
+   - `:actuation/issue-optical-certificate` (Optical Module Test
+     Certificate draft: resolution/MTF test report + safety compliance)
+4. Double-actuation guards use dedicated booleans
+   (`:optical-module-batch-shipped?`, `:optical-certified?`), never a
+   status lifecycle (ADR-2607071320 / 6492 lesson).
+5. `optical-module-batch-focus-back-distance-out-of-range?` continues
+   the fleet two-sided range check family, applied here to a batch's
+   own measured focus-back-distance deviation from its own optical
+   spec's nominal value -- a real end-of-line optical-alignment QA
+   metric, distinct from the physics-derived seating-force check.
+6. `opticsworks.robotics` delivers a REAL, time-stepped `physics-2d`
+   rigid-body lens-barrel press-fit seating-test simulation from day
+   one (not a symbolic field comparison, and not a retrofit): a moving
+   seating-press `Body2D` closes at a controlled velocity onto a static
+   lens-housing seating-register `Body2D`; `:sim-peak-seating-force-n`
+   is read directly off the actual simulated collision trajectory. The
+   governor HARD-holds if the mission never ran, OR if an independent
+   recompute of the batch's own `:sim-peak-seating-force-n` falls
+   outside the batch's own recorded `:seating-force-min-n`/
+   `:seating-force-max-n` acceptance band (a REASONED ENGINEERING
+   ESTIMATE for real lens-barrel press-fit seating forces, disclosed
+   HONESTLY as a moderate-confidence estimate, not a single formal
+   standard's numeric threshold) -- never trusting the mission's
+   self-reported verdict. UNLIKE `moldworks.robotics`'s deliberately
+   ONE-SIDED clamp-tonnage check, this check is TWO-SIDED: too little
+   seating force risks a loose/misaligned lens (focus drift), too much
+   risks a cracked lens element or housing -- both are real, distinct
+   defect-risk directions for a press-fit seating operation.
+7. Optical-standard scheme catalog (`opticsworks.facts`) seeds
+   SMARTPHONE-CAMERA (ISO 12233 + IEC 60825-1) and AUTOMOTIVE-ADAS
+   (ISO 26262 + ISO 20653/IP6K9K) only; SAE J3088 is cited as a
+   plausible ADAS/camera-calibration-adjacent reference but disclosed
+   as LOW-confidence and held OUT of the hard `:required-evidence`
+   gate, since this session could not verify its exact scope/title
+   without live web access; missing product classes (e.g. medical-
+   device imaging optics) are uncovered, never fabricated.
+8. End-of-line defect (optical-clarity/dust-ingress/dead-pixel)
+   unresolved is evaluated unconditionally so
+   `:end-of-line-quality/screen` itself can HARD-hold (parksafety
+   ADR-2607071922 Decision 5 discipline, same as `moldworks.governor`'s/
+   `automotive.governor`'s/`cellworks.governor`'s/`glassworks.governor`'s
+   end-of-line-defect-unresolved checks).
 
 ## Consequences
 
-(+) Optical-instrument-and-photographic-equipment plant operations
-back-office now has a documented, governed, auditable coordination
-layer that funnels all decisions through independent validation before
-human approval.
+(+) The camera/optical-module manufacturing stage gains a forkable OSS
+operating stack with auditable governor holds, closing a gap common to
+BOTH the smartphone-assembly and vehicle-assembly value chains -- the
+SAME dual-downstream-hand-off shape `cloud-itonami-isic-2220`/
+`cloud-itonami-isic-2720`/`cloud-itonami-isic-2310` established for
+plastics, batteries and glass.
+(+) Delivers a REAL time-stepped physics simulation (not a symbolic
+comparison) as a native part of this actor's initial build, extending
+ADR-2607151600/ADR-2607152000's fleet pattern to a NEW actor rather
+than retrofitting an existing symbolic one -- and anchors its
+tolerance band on a REAL, disclosed reasoned-engineering-estimate
+(low-single-digit-to-tens-of-newtons for consumer optics, higher for
+ruggedized automotive housings), honestly disclosed as a moderate-
+confidence estimate rather than a single formal-standard number.
+(+) Genuine dual-downstream hand-off value: the same optical-module-
+batch-shipment/certificate shape serves both `cloud-itonami-isic-2630`
+and `cloud-itonami-isic-2910`/`cloud-itonami-isic-2920` without this
+actor needing to know which downstream consumer a given shipment goes
+to.
+(-) No physical plant digital-twin tick beyond the single lens-seating
+physics check in this repo (follow-up domain data, e.g. an MTF/
+resolution optical-simulation, is out of scope here -- `physics-2d` has
+no optical/ray-tracing model at all).
+(-) Optical-standard-scheme coverage is a starting catalog (2 product
+classes), not exhaustive, and does not capture every product class an
+optical-module manufacturer might produce (e.g. medical-imaging optics,
+industrial machine-vision optics).
+(-) `physics-2d` is a 2D projection with no material-stiffness/
+deformation model, and both the seating-press tool and the lens-housing
+seating register are approximated as flat-plate AABBs (a disclosed
+simplification necessitated by `physics-2d`'s narrowphase) -- see
+`opticsworks.robotics`'s own docstring for the full disclosure.
+(-) The SAE J3088 citation is disclosed as LOW-confidence (this session
+could not verify its exact scope/title without live web access) --
+flagged honestly rather than presented as certain, and held out of the
+hard evidence gate.
 
-(+) The "coordination, not control" boundary is explicit in code: all
-`:effect :propose`, all real-world actuation requires human plant-
-supervisor sign-off, and no laser safety classification mark can ever
-be self-issued.
+## Related
 
-(+) Scope is bounded and verifiable: four HARD invariants (elaborated
-into thirteen concrete governor checks) protect against scope creep
-into unauthorized equipment operation, equipment actuation, or laser-
-safety-classification self-issuance. Safety concerns are a
-circuit-breaker, not a threshold.
-
-(+) Safety-critical discipline is explicit: safety-concern flagging
-cannot be rate-limited, suppressed, or auto-decided by phase gate.
-Human review is mandatory.
-
-(-) Still a simulation/proposal layer, not a real plant-operations
-control system. Equipment actuation, line operation, and laser safety
-classification issuance remain human-/institution-controlled via
-external channels.
-
-(-) No integration with real plant-management databases (equipment
-telemetry, batch tracking, freight dispatch, testing-laboratory APIs)
--- this is a standalone coordinator blueprint.
-
-## Verification
-
-- `cloud-itonami-isic-2670`: `clojure -M:test` green (all tests pass;
-  see the superproject ADR and `kotoba-lang/industry` registry entry
-  for the exact `Ran N tests containing M assertions, 0 failures, 0
-  errors` output, verified from an independent fresh clone), `clojure
-  -M:lint` clean, `clojure -M:dev:run` demo narrative exercises
-  proposal submission, escalation, and every HARD-hold scenario
-  directly (not-propose-effect, unknown-op, equipment-not-verified,
-  batch-not-verified, shipment-quantity-exceeded, equipment-actuate-
-  blocked, laser-classification-authority-blocked, already-scheduled,
-  invalid-instrument-class, invalid-resolution-test-line-pairs-per-mm,
-  invalid-defect-rate).
-- All source is `.cljc` (portable ClojureScript / JVM / nbb) -- no
-  JVM-only interop; the actor graph is invoked exclusively via
-  `langgraph.graph/run*` (not `.invoke`, which is not cljs-portable).
-- Audit ledger is append-only, all decisions are traced; every settled
-  request (commit or hold) leaves exactly one ledger fact.
-- `deps.edn` pins `io.github.kotoba-lang/langgraph` and
-  `io.github.kotoba-lang/langchain` via `:local/root` directly in the
-  top-level `:deps` (not only under a `:dev` alias), so a bare
-  `clojure -M:test` resolves offline inside the monorepo checkout.
+- ADR-2607011000 (robotics premise + ISIC coverage)
+- ADR-2607151600 (real engineering-simulation integration, automotive
+  pilot)
+- ADR-2607152000 (real engineering-simulation fleet extension)
+- Sibling architecture: `cloud-itonami-isic-2220` docs/adr/0001 (closest
+  physics-2d technical analog: a moving rigid body vs. a static rigid
+  body, force derived from F=m*a off the real simulated collision),
+  `cloud-itonami-isic-2732` `src/harnessworks/robotics.cljc` (crimp
+  tensile-pull-test analog), `cloud-itonami-isic-2630`
+  `src/commsdevice/robotics.cljc` (two-sided press-pressure band
+  analog + product-class facts-catalog structure)
