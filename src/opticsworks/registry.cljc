@@ -31,7 +31,7 @@
   Module Test Certificate itself (that is `opticsworks.operation`'s
   `:actuation/ship-optical-module-batch`/`:actuation/issue-optical-
   certificate`, always human-gated -- see README `Actuation`)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn- unsigned-certificate
   "Every certificate this actor produces is UNSIGNED -- signature is
@@ -90,7 +90,7 @@
     (throw (ex-info "optical-module-batch-shipment: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "optical-module-batch-shipment: sequence must be >= 0" {})))
-  (let [shipment-number (str (str/upper-case jurisdiction) "-OMS-" (zero-pad sequence 6))
+  (let [shipment-number (str (str/upper jurisdiction) "-OMS-" (zero-pad sequence 6))
         record {"record_id" shipment-number
                 "kind" "optical-module-batch-shipment-draft"
                 "batch_id" batch-id
@@ -118,7 +118,7 @@
     (throw (ex-info "optical-certificate: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "optical-certificate: sequence must be >= 0" {})))
-  (let [certificate-number (str (str/upper-case jurisdiction) "-OMC-" (zero-pad sequence 6))
+  (let [certificate-number (str (str/upper jurisdiction) "-OMC-" (zero-pad sequence 6))
         record {"record_id" certificate-number
                 "kind" "optical-certificate-draft"
                 "batch_id" batch-id

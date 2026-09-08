@@ -11,7 +11,7 @@
 
   This is the honest delivery of the industry-stack `:export?` contract
   (robotics / audit-ledger capabilities) for ISIC 2670."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [opticsworks.store :as store]))
 
 (defn- csv-escape [v]
