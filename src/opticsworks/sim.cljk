@@ -1,5 +1,5 @@
 (ns opticsworks.sim
-  "Demo driver -- `clojure -M:dev:run`. Walks a clean optical-module-
+  "Demo driver -- `kbb -M:dev:run`. Walks a clean optical-module-
   batch through intake -> optical-standard requirements verification ->
   end-of-line-defect screening -> robot lens-seating-verification
   mission -> batch-shipment proposal (always escalates) -> human
