@@ -46,11 +46,11 @@
   :dev {:override-deps
         {io.github.kotoba-lang/langchain
          {:local/root "../../kotoba-lang/langchain"}}}
-  ;; clojure -M:dev:run  -> drive the demo through one OperationActor
+  ;; kbb -M:dev:run  -> drive the demo through one OperationActor
   :run {:main-opts ["-m" "opticsworks.sim"]}
   :export {:main-opts ["-m" "opticsworks.export-run"]}
   :render-export {:main-opts ["-m" "opticsworks.render-export"]}
-  ;; clojure -M:dev:render-html [out-file] -> regenerate
+  ;; kbb -M:dev:render-html [out-file] -> regenerate
   ;; docs/samples/operator-console.html by actually running the actor
   ;; (flagship checklist item 2). Refuses to write when the run produced
   ;; no HARD governor hold -- see `opticsworks.render-html/-main`.
