@@ -1,0 +1,46 @@
+(ns opticsworks.physics-probe-test
+  "The probe is the bot's only source of \"measured\"; these pin that it
+  measures (every run numeric, count = expected), that the numbers come
+  from the simulation (the derived mass windows really straddle the
+  band edges), and that a changed solver would show."
+  (:require [clojure.test :refer [deftest is testing]]
+            [opticsworks.physics-probe :as probe]
+            [opticsworks.robotics :as robotics]))
+
+(defn- force-at [kg]
+  (:sim-peak-seating-force-n (robotics/seating-telemetry-for {:seating-press-effective-mass-kg kg})))
+
+(deftest probe-measures-every-run
+  (let [p (probe/probe)]
+    (is (= "itonami.physical-ai.probe.v1" (:physics-probe/schema p)))
+    (is (pos? (:count p)))
+    (is (= (:count p) (:expected p) (count (:runs p))))
+    (testing "every run carries a numeric force and tick count from the trajectory"
+      (doseq [r (:runs p)]
+        (is (number? (get-in r [:quantities :sim-peak-seating-force-n])))
+        (is (pos? (get-in r [:quantities :ticks])))))))
+
+(deftest force-rises-with-mass-across-the-sweep
+  (let [forces (map #(get-in % [:quantities :sim-peak-seating-force-n]) (:runs (probe/probe)))]
+    (is (apply < forces))))
+
+(deftest two-sided-band-flags-both-directions
+  (testing "the lightest consumer run is under-pressed, the heaviest ruggedized run over-pressed"
+    (let [runs (:runs (probe/probe))]
+      (is (true? (:out-of-tolerance? (first runs))))
+      (is (true? (:out-of-tolerance? (last runs))))
+      (is (some (complement :out-of-tolerance?) runs)))))
+
+(deftest derived-mass-windows-straddle-the-band-edges
+  (doseq [k [:consumer-grade-mass-window :ruggedized-grade-mass-window]]
+    (let [{:keys [band-n min-mass-kg max-mass-kg]} (get-in (probe/probe) [:derived k])]
+      (is (number? min-mass-kg))
+      (is (number? max-mass-kg))
+      (is (< min-mass-kg max-mass-kg))
+      (is (>= (force-at min-mass-kg) (:min band-n)))
+      (is (< (force-at (* 0.99 min-mass-kg)) (:min band-n)))
+      (is (>= (force-at max-mass-kg) (:max band-n)))
+      (is (< (force-at (* 0.99 max-mass-kg)) (:max band-n))))))
+
+(deftest bracket-that-does-not-straddle-answers-nil
+  (is (nil? (probe/mass-at-force-kg 20.0 1.0 10.0 10))))
