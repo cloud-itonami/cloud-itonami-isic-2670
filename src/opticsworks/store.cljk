@@ -36,7 +36,7 @@
   immutable log -- the audit trail a community trusting a camera/
   optical-module manufacturer needs, and the evidence a plant needs if a
   shipment or certificate decision is later disputed."
-  (:require #?(:clj  [clojure.edn :as edn]
+  (:require #?(:clj  [kotoba.lang.edn :as edn]
                :cljs [cljs.reader :as edn])
             [opticsworks.registry :as registry]
             [opticsworks.robotics :as robotics]
