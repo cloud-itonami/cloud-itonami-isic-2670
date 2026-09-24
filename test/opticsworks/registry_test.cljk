@@ -1,5 +1,5 @@
 (ns opticsworks.registry-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [opticsworks.registry :as r]))
 
 ;; ----------------------------- optical-module-batch-focus-back-distance-out-of-range? -----------------------------

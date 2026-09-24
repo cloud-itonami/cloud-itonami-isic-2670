@@ -3,7 +3,7 @@
   measures (every run numeric, count = expected), that the numbers come
   from the simulation (the derived mass windows really straddle the
   band edges), and that a changed solver would show."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [opticsworks.physics-probe :as probe]
             [opticsworks.robotics :as robotics]))
 
