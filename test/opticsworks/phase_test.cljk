@@ -3,7 +3,7 @@
   regress on: `:actuation/ship-optical-module-batch`/`:actuation/issue-
   optical-certificate` must NEVER be a member of any phase's `:auto`
   set."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [opticsworks.phase :as phase]))
 
 (deftest ship-optical-module-batch-never-auto-at-any-phase

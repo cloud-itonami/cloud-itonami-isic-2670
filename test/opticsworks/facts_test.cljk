@@ -1,6 +1,6 @@
 (ns opticsworks.facts-test
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is]]
+            [kotoba.test :refer [deftest is]]
             [opticsworks.facts :as facts]))
 
 (deftest smartphone-camera-has-a-spec-basis
